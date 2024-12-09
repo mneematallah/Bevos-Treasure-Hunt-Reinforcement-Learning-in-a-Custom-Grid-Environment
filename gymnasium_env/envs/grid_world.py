@@ -35,6 +35,8 @@ class GridWorldEnv(gym.Env):
         self.render_mode = render_mode
         self.window = None
         self.clock = None
+        self.grid = None
+        self._agent_location = None
         self.steps = 0
         self.score = 10
 
@@ -77,13 +79,12 @@ class GridWorldEnv(gym.Env):
         self.grid[tuple(self._agent_location)] = 0
         self.steps += 1
 
-        # Check if all grass has been eaten
         if np.sum(self.grid == 1) == 0:  # No grass left
             terminated = True
         else:
             terminated = self.steps >= self.max_steps
 
-        truncated = False  # Add this to match Gymnasium's step signature
+        truncated = False
         observation = self._get_obs()
 
         if self.render_mode == "human":
@@ -110,7 +111,7 @@ class GridWorldEnv(gym.Env):
         if self.clock is None and self.render_mode == "human":
             self.clock = pygame.time.Clock()
 
-        canvas = pygame.Surface((self.window_size, self.window_size + 50))  # Adjust canvas size
+        canvas = pygame.Surface((self.window_size, self.window_size + 50))
         canvas.fill((255, 255, 255))
         pix_square_size = self.window_size // self.size
         grass_image = pygame.image.load("images/grass.png")
@@ -143,7 +144,6 @@ class GridWorldEnv(gym.Env):
         steps_text = font.render(f"Steps: {self.steps}/{self.max_steps}", True, (0, 0, 0))
 
         canvas.blit(score_text, (10, 10))
-
         text_width, _ = steps_text.get_size()
         canvas.blit(steps_text, (self.window_size - text_width - 10, 10))
 
