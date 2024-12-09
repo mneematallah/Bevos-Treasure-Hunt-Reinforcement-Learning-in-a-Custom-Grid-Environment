@@ -1,6 +1,10 @@
 from gymnasium_env.envs import GridWorldEnv
 
-env = GridWorldEnv(render_mode="human", size=5)
+env = GridWorldEnv(render_mode="human", size=6, max_steps=50, grass_count=3, ou_count=3)
+
+# notes for u guys:
+# the game ends if
+
 
 observation, info = env.reset()
 

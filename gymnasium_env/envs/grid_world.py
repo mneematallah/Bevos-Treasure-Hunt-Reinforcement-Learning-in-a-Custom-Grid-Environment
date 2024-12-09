@@ -105,11 +105,12 @@ class GridWorldEnv(gym.Env):
         if self.window is None and self.render_mode == "human":
             pygame.init()
             pygame.display.init()
-            self.window = pygame.display.set_mode((self.window_size, self.window_size))
+            self.window = pygame.display.set_mode(
+                (self.window_size, self.window_size + 50))  # Add space for score and steps
         if self.clock is None and self.render_mode == "human":
             self.clock = pygame.time.Clock()
 
-        canvas = pygame.Surface((self.window_size, self.window_size))
+        canvas = pygame.Surface((self.window_size, self.window_size + 50))  # Adjust canvas size
         canvas.fill((255, 255, 255))
         pix_square_size = self.window_size // self.size
         grass_image = pygame.image.load("images/grass.png")
@@ -123,25 +124,28 @@ class GridWorldEnv(gym.Env):
         for x in range(self.size):
             for y in range(self.size):
                 if self.grid[x, y] == 1:
-                    canvas.blit(grass_image, (x * pix_square_size, y * pix_square_size))
+                    canvas.blit(grass_image, (x * pix_square_size, y * pix_square_size + 50))
                 elif self.grid[x, y] == -1:
-                    canvas.blit(ou_image, (x * pix_square_size, y * pix_square_size))
+                    canvas.blit(ou_image, (x * pix_square_size, y * pix_square_size + 50))
 
-        canvas.blit(agent_image, (self._agent_location[0] * pix_square_size, self._agent_location[1] * pix_square_size))
+        canvas.blit(agent_image,
+                    (self._agent_location[0] * pix_square_size, self._agent_location[1] * pix_square_size + 50))
 
-        # Draw grid lines
         for x in range(self.size + 1):
-            pygame.draw.line(canvas, (0, 0, 0), (0, pix_square_size * x), (self.window_size, pix_square_size * x),
+            pygame.draw.line(canvas, (0, 0, 0), (0, pix_square_size * x + 50),
+                             (self.window_size, pix_square_size * x + 50),
                              width=3)
-            pygame.draw.line(canvas, (0, 0, 0), (pix_square_size * x, 0), (pix_square_size * x, self.window_size),
+            pygame.draw.line(canvas, (0, 0, 0), (pix_square_size * x, 50), (pix_square_size * x, self.window_size + 50),
                              width=3)
 
-        # Display score and steps on the screen
         font = pygame.font.Font(None, 36)
         score_text = font.render(f"Score: {self.score}", True, (0, 0, 0))
         steps_text = font.render(f"Steps: {self.steps}/{self.max_steps}", True, (0, 0, 0))
+
         canvas.blit(score_text, (10, 10))
-        canvas.blit(steps_text, (10, 50))
+
+        text_width, _ = steps_text.get_size()
+        canvas.blit(steps_text, (self.window_size - text_width - 10, 10))
 
         # Show the canvas in the window
         if self.render_mode == "human":
