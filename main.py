@@ -4,6 +4,9 @@ env = GridWorldEnv(render_mode="human", size=6, max_steps=50, grass_count=3, ou_
 
 # notes for u guys:
 # the game ends if
+# - max steps are reached
+# - score becomes negative
+# - all grass tiles are hit
 
 
 observation, info = env.reset()
