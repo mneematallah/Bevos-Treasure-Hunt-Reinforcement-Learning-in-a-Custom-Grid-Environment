@@ -79,10 +79,8 @@ class GridWorldEnv(gym.Env):
         self.grid[tuple(self._agent_location)] = 0
         self.steps += 1
 
-        if np.sum(self.grid == 1) == 0:  # No grass left
-            terminated = True
-        else:
-            terminated = self.steps >= self.max_steps
+        grass_remaining = np.sum(self.grid == 1)
+        terminated = self.score < 0 or self.steps >= self.max_steps or grass_remaining == 0
 
         truncated = False
         observation = self._get_obs()
