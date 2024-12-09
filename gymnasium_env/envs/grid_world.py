@@ -36,12 +36,12 @@ class GridWorldEnv(gym.Env):
         self.window = None
         self.clock = None
         self.steps = 0
-        self.score = 0
+        self.score = 10
 
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
         self.steps = 0
-        self.score = 0
+        self.score = 10
         self._agent_location = self.np_random.integers(0, self.size, size=2, dtype=int)
         self.grid = np.zeros((self.size, self.size), dtype=int)
         # Place grass (1)
