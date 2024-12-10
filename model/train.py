@@ -4,6 +4,7 @@ from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 from stable_baselines3.common.callbacks import CheckpointCallback
 from stable_baselines3.common.logger import configure
+from stable_baselines3.common.monitor import Monitor
 from datetime import datetime
 import torch
 import numpy as np
@@ -30,7 +31,7 @@ def train_model(
     model_path="policy/ppo_gridworld_model",
     total_timesteps=1_000_000,
     env_config=None,
-    save_unique=False
+    save_unique=False,
 ):
     """
     Train (or continue training) a PPO model on the GridWorldEnv.
@@ -53,15 +54,17 @@ def train_model(
             "max_steps": 5000,
             "grass_count": 3,
             "ou_count": 5,
+            "penalty_scaling": 1.0
         }
 
     def make_env():
-        # Make the environment. No rendering for training.
-        return GridWorldEnv(**env_config)
+        # Make the environment with monitoring for debugging
+        env = GridWorldEnv(**env_config)
+        return Monitor(env)
 
     # Create a vectorized environment with reward normalization
     env = DummyVecEnv([make_env])
-    env = VecNormalize(env, norm_reward=True, clip_reward=10.0)
+    env = VecNormalize(env, norm_obs=True, norm_reward=True, clip_reward=10.0)
 
     # Set up logging
     log_dir = "./logs/"
@@ -88,10 +91,10 @@ def train_model(
             "MlpPolicy",
             env,
             policy_kwargs=policy_kwargs,
-            learning_rate=3e-4,
-            n_steps=2048,
-            batch_size=64,
-            clip_range=0.2,
+            learning_rate=2.5e-4,  # Adjusted for stability
+            n_steps=4096,  # Larger batch size for better gradient estimates
+            batch_size=256,  # Match batch size to available hardware
+            clip_range=0.1, 
             verbose=1,
             device=device,  # Use GPU if available
         )
@@ -100,7 +103,7 @@ def train_model(
 
     # Set up a checkpoint callback
     checkpoint_callback = CheckpointCallback(
-        save_freq=10_000,  # Save every 10,000 steps
+        save_freq=50_000,  
         save_path="./checkpoints/",
         name_prefix="ppo_gridworld"
     )

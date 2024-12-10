@@ -16,12 +16,13 @@ class Actions(Enum):
 class GridWorldEnv(gym.Env):
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 4}
 
-    def __init__(self, render_mode=None, size=5, max_steps=50, grass_count=3, ou_count=3):
+    def __init__(self, render_mode=None, size=5, max_steps=50, grass_count=3, ou_count=3, penalty_scaling=1.0):
         self.size = size
         self.window_size = 512
         self.max_steps = max_steps
         self.grass_count = grass_count
         self.ou_count = ou_count
+        self.penalty_scaling = penalty_scaling
         self.observation_space = Box(
             low=0,
             high=1,
@@ -72,30 +73,42 @@ class GridWorldEnv(gym.Env):
 
     def step(self, action):
         direction = self._action_to_direction[action]
-        self._agent_location = np.clip(self._agent_location + direction, 0, self.size - 1)
+        new_location = self._agent_location + direction
+
+        invalid_move_penalty = self.penalty_scaling  # Fetch dynamic penalty scaling
+
+
+        # Check if the move is valid
+        if 0 <= new_location[0] < self.size and 0 <= new_location[1] < self.size:
+            self._agent_location = new_location
+        else:
+            # Penalize invalid move
+            self.score -= 5 * invalid_move_penalty
+
         tile_value = self.grid[tuple(self._agent_location)]
-        
-        # Update score based on the tile the agent moves to
+
+        # Update score based on the tile
         if tile_value == 1:  # Grass
             self.score += 10
-        elif tile_value == -1:  # OU (hazard)
+        elif tile_value == -1:  # Hazard
             self.score -= 5
-        # Clear the grass or OU from the grid after the agent eats or interacts with it
+
+        # Clear the grid tile after interaction
         self.grid[tuple(self._agent_location)] = 0
         self.steps += 1
 
         grass_remaining = np.sum(self.grid == 1)
         terminated = self.score < 0 or self.steps >= self.max_steps or grass_remaining == 0
 
-        truncated = False
         observation = self._get_obs()
-
         if self.render_mode == "human":
             self._render_frame()
 
-        info = {}
+        return observation, self.score, terminated, False, {
+            "grass_remaining": grass_remaining,
+            "invalid_moves": invalid_move_penalty,  # Log invalid moves
+        }
 
-        return observation, self.score, terminated, truncated, info
 
     def _get_obs(self):
         agent_obs = np.array(self._agent_location, dtype=np.float32)
