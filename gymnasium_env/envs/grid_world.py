@@ -77,7 +77,6 @@ class GridWorldEnv(gym.Env):
 
         invalid_move_penalty = self.penalty_scaling  # Fetch dynamic penalty scaling
 
-
         # Check if the move is valid
         if 0 <= new_location[0] < self.size and 0 <= new_location[1] < self.size:
             self._agent_location = new_location
@@ -97,8 +96,23 @@ class GridWorldEnv(gym.Env):
         self.grid[tuple(self._agent_location)] = 0
         self.steps += 1
 
-        grass_remaining = np.sum(self.grid == 1)
-        terminated = self.score < 0 or self.steps >= self.max_steps or grass_remaining == 0
+        # Track the agent's movement history
+        if not hasattr(self, "previous_locations"):
+            self.previous_locations = []  # Initialize movement history
+        
+        # Maintain a rolling window of the last 5 locations
+        if len(self.previous_locations) > 5:
+            self.previous_locations.pop(0)
+        self.previous_locations.append(tuple(self._agent_location))
+
+        # Check for oscillation (repeating the same location)
+        if len(set(self.previous_locations)) <= 2:  # Oscillating between two locations
+            terminated = True
+            termination_reason = "oscillation"
+        else:
+            grass_remaining = np.sum(self.grid == 1)
+            terminated = self.score < 0 or self.steps >= self.max_steps or grass_remaining == 0
+            termination_reason = None
 
         observation = self._get_obs()
         if self.render_mode == "human":
@@ -107,7 +121,9 @@ class GridWorldEnv(gym.Env):
         return observation, self.score, terminated, False, {
             "grass_remaining": grass_remaining,
             "invalid_moves": invalid_move_penalty,  # Log invalid moves
+            "termination_reason": termination_reason,  # Log why the episode terminated
         }
+
 
 
     def _get_obs(self):

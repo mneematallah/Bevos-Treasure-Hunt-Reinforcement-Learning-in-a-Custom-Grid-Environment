@@ -22,7 +22,7 @@ if __name__ == "__main__":
         "max_steps": 5000,
         "grass_count": 3,
         "ou_count": 5,
-        "penalty_scaling": 0.1
+        "penalty_scaling": 0.5
     }
     env_config_evaluate = {
         "render_mode": "human", 
