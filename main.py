@@ -20,4 +20,4 @@ if __name__ == "__main__":
 
     # Evaluate the model with CUDA
     print("Starting evaluation...")
-    evaluate(model_path=model_path, env_config=env_config, max_episodes=5)
+    evaluate(model_path=model_path, env_config=env_config, max_episodes=50)

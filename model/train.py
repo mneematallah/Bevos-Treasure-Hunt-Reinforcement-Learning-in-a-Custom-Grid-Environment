@@ -1,22 +1,41 @@
 import os
 import gymnasium as gym
 from stable_baselines3 import PPO
-from stable_baselines3.common.vec_env import DummyVecEnv
+from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
+from stable_baselines3.common.callbacks import CheckpointCallback
+from stable_baselines3.common.logger import configure
 from datetime import datetime
 import torch
-
+import numpy as np
 from gymnasium_env.envs import GridWorldEnv
+
+# Define a custom feature extractor (optional)
+from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
+import torch.nn as nn
+
+class CustomFeatureExtractor(BaseFeaturesExtractor):
+    def __init__(self, observation_space, features_dim=128):
+        super(CustomFeatureExtractor, self).__init__(observation_space, features_dim)
+        self.network = nn.Sequential(
+            nn.Linear(observation_space.shape[0], 256),
+            nn.ReLU(),
+            nn.Linear(256, features_dim),
+            nn.ReLU(),
+        )
+
+    def forward(self, observations):
+        return self.network(observations)
 
 def train_model(
     model_path="policy/ppo_gridworld_model",
-    total_timesteps=200000,
+    total_timesteps=1_000_000,
     env_config=None,
     save_unique=False
 ):
     """
     Train (or continue training) a PPO model on the GridWorldEnv.
-    By default, constantly replaces previous model/policy with newly trained one
-    
+    Incorporates reward normalization, checkpointing, and custom policies.
+
     :param model_path: str - File path to save or load the model.
     :param total_timesteps: int - How many timesteps to train for.
     :param env_config: dict - A dictionary of environment parameters (optional).
@@ -25,7 +44,6 @@ def train_model(
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}")
-
 
     # If env_config is not provided, use some defaults
     if env_config is None:
@@ -41,8 +59,14 @@ def train_model(
         # Make the environment. No rendering for training.
         return GridWorldEnv(**env_config)
 
-    # Create a vectorized environment
+    # Create a vectorized environment with reward normalization
     env = DummyVecEnv([make_env])
+    env = VecNormalize(env, norm_reward=True, clip_reward=10.0)
+
+    # Set up logging
+    log_dir = "./logs/"
+    os.makedirs(log_dir, exist_ok=True)
+    new_logger = configure(log_dir, ["stdout", "csv", "tensorboard"])
 
     # Check if a previously trained model exists
     if os.path.exists(model_path + ".zip"):
@@ -52,20 +76,37 @@ def train_model(
             env=env, 
             device=device
         )
+        model.set_logger(new_logger)
         print(f"Loaded existing model from {model_path}")
     else:
         # Create a new model if none exists
-        # MLPPolicy = A multi-layer perceptron policy (default for environments with vector observations).
+        policy_kwargs = dict(
+            features_extractor_class=CustomFeatureExtractor,
+            features_extractor_kwargs=dict(features_dim=128),
+        )
         model = PPO(
             "MlpPolicy",
             env,
+            policy_kwargs=policy_kwargs,
+            learning_rate=3e-4,
+            n_steps=2048,
+            batch_size=64,
+            clip_range=0.2,
             verbose=1,
-            device=device  # Use GPU if exists or has CUDA
+            device=device,  # Use GPU if available
         )
+        model.set_logger(new_logger)
         print("Created a new PPO model.")
 
+    # Set up a checkpoint callback
+    checkpoint_callback = CheckpointCallback(
+        save_freq=10_000,  # Save every 10,000 steps
+        save_path="./checkpoints/",
+        name_prefix="ppo_gridworld"
+    )
+
     # Train the model
-    model.learn(total_timesteps=total_timesteps)
+    model.learn(total_timesteps=total_timesteps, callback=checkpoint_callback)
 
     if save_unique:
         # Save the model with a timestamp to differentiate policies created
@@ -77,7 +118,6 @@ def train_model(
         # Save the updated model without a timestamp
         model.save(model_path)
         print(f"Model saved at {model_path}")
-
 
 if __name__ == "__main__":
     # If I want to just train the model for an initial policy
