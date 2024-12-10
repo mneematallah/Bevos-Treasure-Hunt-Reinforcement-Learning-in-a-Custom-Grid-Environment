@@ -15,8 +15,8 @@ if __name__ == "__main__":
     }
 
     # Train the model with CUDA
-    print("Starting training...")
-    train_model(model_path=model_path, total_timesteps=200000, env_config=env_config)
+    # print("Starting training...")
+    # train_model(model_path=model_path, total_timesteps=200000, env_config=env_config)
 
     # Evaluate the model with CUDA
     print("Starting evaluation...")

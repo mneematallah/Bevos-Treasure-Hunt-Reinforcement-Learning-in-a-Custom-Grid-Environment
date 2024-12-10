@@ -103,8 +103,11 @@ class GridWorldEnv(gym.Env):
         return np.concatenate([agent_obs, tiles_obs])  # Combine agent and grid into a single array
 
     def render(self):
-        if self.render_mode == "rgb_array":
+        if self.render_mode == "human":
+            self._render_frame()  # Call the rendering function directly
+        elif self.render_mode == "rgb_array":
             return self._render_frame()
+
 
     def _render_frame(self):
         if self.window is None and self.render_mode == "human":
