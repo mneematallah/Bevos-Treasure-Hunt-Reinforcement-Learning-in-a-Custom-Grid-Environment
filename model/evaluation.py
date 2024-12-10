@@ -41,6 +41,7 @@ def evaluate(model_path, env_config=None, max_episodes=5):
             while not done:
                 # Get the best action from the model
                 action, _ = model.predict(observation, deterministic=True)
+                action = int(action)
                 # Take the action in the environment
                 observation, reward, done, truncated, info = env.step(action)
                 # Accumulate rewards

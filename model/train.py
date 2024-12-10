@@ -8,7 +8,7 @@ import torch
 from gymnasium_env.envs import GridWorldEnv
 
 def train_model(
-    model_path="ppo_gridworld_model",
+    model_path="policy/ppo_gridworld_model",
     total_timesteps=200000,
     env_config=None,
     save_unique=False
@@ -57,7 +57,7 @@ def train_model(
         # Create a new model if none exists
         # MLPPolicy = A multi-layer perceptron policy (default for environments with vector observations).
         model = PPO(
-            "MLPPolicy",
+            "MlpPolicy",
             env,
             verbose=1,
             device=device  # Use GPU if exists or has CUDA
