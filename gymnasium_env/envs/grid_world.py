@@ -1,8 +1,10 @@
 from enum import Enum
 import gymnasium as gym
 from gymnasium import spaces
+from gymnasium.spaces import Box
 import pygame
 import numpy as np
+
 
 class Actions(Enum):
     right = 0
@@ -20,10 +22,12 @@ class GridWorldEnv(gym.Env):
         self.max_steps = max_steps
         self.grass_count = grass_count
         self.ou_count = ou_count
-        self.observation_space = spaces.Dict({
-            "agent": spaces.Box(0, size - 1, shape=(2,), dtype=int),
-            "tiles": spaces.Box(-1, 1, shape=(size, size), dtype=int),
-        })
+        self.observation_space = Box(
+            low=0,
+            high=1,
+            shape=(2 + size * size,),  # 2 for agent + flattened grid size
+            dtype=np.float32
+        )
         self.action_space = spaces.Discrete(4)
         self._action_to_direction = {
             Actions.right.value: np.array([1, 0]),
@@ -61,9 +65,10 @@ class GridWorldEnv(gym.Env):
                     self.grid[tuple(loc)] = -1
                     break
         observation = self._get_obs()
+        info = {}  # Additional information
         if self.render_mode == "human":
             self._render_frame()
-        return observation
+        return observation, info
 
     def step(self, action):
         direction = self._action_to_direction[action]
@@ -88,13 +93,14 @@ class GridWorldEnv(gym.Env):
         if self.render_mode == "human":
             self._render_frame()
 
-        return observation, self.score, terminated, truncated, {}
+        info = {}
+
+        return observation, self.score, terminated, truncated, info
 
     def _get_obs(self):
-        return {
-            "agent": self._agent_location.copy(),
-            "tiles": self.grid.copy(),
-        }
+        agent_obs = np.array(self._agent_location, dtype=np.float32)
+        tiles_obs = self.grid.flatten().astype(np.float32)  # Flatten the grid into 1D for use for 
+        return np.concatenate([agent_obs, tiles_obs])  # Combine agent and grid into a single array
 
     def render(self):
         if self.render_mode == "rgb_array":

@@ -1,20 +1,23 @@
 from gymnasium_env.envs import GridWorldEnv
-
-env = GridWorldEnv(render_mode="human", size=5, max_steps=5000, grass_count=3, ou_count=5)
-
-# notes for u guys:
-# the game ends if
-# - max steps are reached
-# - score becomes negative
-# - all grass tiles are hit
+from model.train import train_model
+from model.evaluation import run_evaluation
 
 
-observation, info = env.reset()
+if __name__ == "__main__":
+    # env = GridWorldEnv(render_mode="human", size=5, max_steps=5000, grass_count=3, ou_count=5)
+    # Load/Intialize policy and environment
+    model_path = "ppo_gridworld_model"
+    env_config = {
+        "size": 5,
+        "max_steps": 5000,
+        "grass_count": 3,
+        "ou_count": 5,
+    }
 
-done = False
-while not done:
-    action = env.action_space.sample()
-    observation, reward, done, truncated, info = env.step(action)
-    env.render()
+    # Train the model with CUDA
+    print("Starting training...")
+    train_model(model_path=model_path, total_timesteps=200000, env_config=env_config)
 
-env.close()
+    # Evaluate the model with CUDA
+    print("Starting evaluation...")
+    run_evaluation(model_path=model_path, env_config=env_config, max_episodes=5)
