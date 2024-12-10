@@ -96,23 +96,34 @@ class GridWorldEnv(gym.Env):
         self.grid[tuple(self._agent_location)] = 0
         self.steps += 1
 
-        # Track the agent's movement history
+        # Always calculate grass_remaining
+        grass_remaining = np.sum(self.grid == 1)
+        terminated = (
+            self.score < 0 or 
+            self.steps >= self.max_steps or 
+            grass_remaining == 0 or 
+            len(set(getattr(self, "previous_locations", []))) <= 2  # Oscillation check
+        )
+
+        # Initialize termination_reason
+        termination_reason = None
+        if terminated:
+            if self.score < 0:
+                termination_reason = "low_score"
+            elif self.steps >= self.max_steps:
+                termination_reason = "max_steps"
+            elif grass_remaining == 0:
+                termination_reason = "no_grass_remaining"
+            elif len(set(getattr(self, "previous_locations", []))) <= 2:
+                termination_reason = "oscillation"
+
+        # Track agent's movement history
         if not hasattr(self, "previous_locations"):
             self.previous_locations = []  # Initialize movement history
         
-        # Maintain a rolling window of the last 5 locations
         if len(self.previous_locations) > 5:
             self.previous_locations.pop(0)
         self.previous_locations.append(tuple(self._agent_location))
-
-        # Check for oscillation (repeating the same location)
-        if len(set(self.previous_locations)) <= 2:  # Oscillating between two locations
-            terminated = True
-            termination_reason = "oscillation"
-        else:
-            grass_remaining = np.sum(self.grid == 1)
-            terminated = self.score < 0 or self.steps >= self.max_steps or grass_remaining == 0
-            termination_reason = None
 
         observation = self._get_obs()
         if self.render_mode == "human":
@@ -121,8 +132,9 @@ class GridWorldEnv(gym.Env):
         return observation, self.score, terminated, False, {
             "grass_remaining": grass_remaining,
             "invalid_moves": invalid_move_penalty,  # Log invalid moves
-            "termination_reason": termination_reason,  # Log why the episode terminated
+            "termination_reason": termination_reason,  # Log termination reason
         }
+
 
 
 
