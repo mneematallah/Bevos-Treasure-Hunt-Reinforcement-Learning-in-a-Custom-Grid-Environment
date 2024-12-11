@@ -39,4 +39,4 @@ if __name__ == "__main__":
 
     if args.mode in ["evaluate", "both"]:
         print("Starting evaluation...")
-        evaluate(model_path=model_path, env_config=env_config_evaluate, max_episodes=5)
+        evaluate(model_path="policy/ppo_gridworld_model_20241211_014413", env_config=env_config_evaluate, max_episodes=5)

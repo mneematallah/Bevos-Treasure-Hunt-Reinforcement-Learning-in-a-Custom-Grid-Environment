@@ -204,6 +204,26 @@ class GridWorldEnv(gym.Env):
             self.clock.tick(self.metadata["render_fps"])
         else:
             return np.transpose(np.array(pygame.surfarray.pixels3d(canvas)), axes=(1, 0, 2))
+            
+    def save_video(self, output_path="output.mp4", fps=20, speed_factor=2):
+        """
+        Saves the collected frames as a video file.
+
+        :param output_path: str - File path for the output video.
+        :param fps: int - Frames per second for the video.
+        :param speed_factor: float - Factor by which to speed up the video.
+        """
+        if len(self.frames) == 0:
+            print("No frames to save. Run the environment with render_mode='rgb_array'.")
+            return
+
+        # Adjust fps for speed-up
+        adjusted_fps = int(fps * speed_factor)
+
+        # Create video clip
+        clip = ImageSequenceClip(self.frames, fps=adjusted_fps)
+        clip.write_videofile(output_path, codec="libx264")
+        print(f"Video saved to {output_path}")
 
     def close(self):
         if self.window is not None:
