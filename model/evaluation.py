@@ -48,7 +48,7 @@ def evaluate(model_path, env_config=None, max_episodes=5, video_output_dir="vide
             total_reward = 0
 
             # Prepare video writer for this episode
-            video_path = os.path.join(video_output_dir, f"{model_path}episode_{episode + 1}.mp4")
+            video_path = os.path.join(video_output_dir, f"episode_{episode + 1}.mp4")
             frame_size = (env.window_size, env.window_size + 50)  # Match pygame canvas size
             fps = 10  # Frames per second
             video_writer = cv2.VideoWriter(video_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, frame_size)
