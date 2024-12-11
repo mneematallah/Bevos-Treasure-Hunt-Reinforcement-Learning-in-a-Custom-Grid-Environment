@@ -83,7 +83,7 @@ class GridWorldEnv(gym.Env):
         direction = self._action_to_direction[action]
         new_location = self._agent_location + direction
 
-        # Apply a small negative step cost every step
+        # step cost
         step_cost = -0.1
         self.score += step_cost
 
@@ -91,7 +91,6 @@ class GridWorldEnv(gym.Env):
 
         if 0 <= new_location[0] < self.size and 0 <= new_location[1] < self.size:
             self._agent_location = new_location
-            # No +1 reward for valid move on empty tiles now
         else:
             # Invalid move penalty
             self.score -= 2 * invalid_move_penalty
@@ -99,20 +98,18 @@ class GridWorldEnv(gym.Env):
         tile_value = self.grid[tuple(self._agent_location)]
 
         if tile_value == 1:  # Grass
-            # Increase grass reward
             self.score += 50
         elif tile_value == -1:  # Hazard
             self.score -= 5
 
-        # Clear the tile after collecting grass or stepping on hazard
         self.grid[tuple(self._agent_location)] = 0
         self.steps += 1
 
         grass_remaining = np.sum(self.grid == 1)
 
-        # Oscillation detection
+        # Stricter oscillation detection: Check last 5 locations
         self.previous_locations.append(tuple(self._agent_location))
-        if len(self.previous_locations) > 10:
+        if len(self.previous_locations) > 5:
             self.previous_locations.pop(0)
         unique_locations = set(self.previous_locations)
         oscillating = len(unique_locations) <= 2
@@ -122,12 +119,12 @@ class GridWorldEnv(gym.Env):
             self.score < -10 or
             self.steps >= self.max_steps or
             grass_remaining == 0 or
-            (oscillating and self.steps > 20)
+            (oscillating and self.steps > 10)  # Trigger sooner
         )
 
         termination_reason = None
-        if oscillating and self.steps > 20:
-            self.score -= 10 * self.penalty_scaling
+        if oscillating and self.steps > 10:
+            self.score -= 20 * self.penalty_scaling  # Larger penalty
             termination_reason = "oscillation"
             terminated = True
 
