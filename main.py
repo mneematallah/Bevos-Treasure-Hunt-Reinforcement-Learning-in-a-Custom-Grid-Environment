@@ -17,12 +17,13 @@ if __name__ == "__main__":
 
     # Define paths and configurations
     model_path = "policy/ppo_gridworld_model"
+    norm_path = "policy/ppo_gridworld_model_norm"  # Path to normalization statistics
     env_config_train = {
         "size": 5,
         "max_steps": 5000,
         "grass_count": 3,
         "ou_count": 5,
-        "penalty_scaling": 0.5
+        "penalty_scaling": 0.05
     }
     env_config_evaluate = {
         "render_mode": "human", 
@@ -35,8 +36,17 @@ if __name__ == "__main__":
     # Run based on the selected mode
     if args.mode in ["train", "both"]:
         print("Starting training...")
-        train_model(model_path=model_path, total_timesteps=200000, env_config=env_config_train)
+        train_model(
+            model_path=model_path, 
+            total_timesteps=500000, 
+            env_config=env_config_train
+        )
 
     if args.mode in ["evaluate", "both"]:
         print("Starting evaluation...")
-        evaluate(model_path=model_path, env_config=env_config_evaluate, max_episodes=5)
+        evaluate(
+            model_path=model_path, 
+            norm_path=norm_path, 
+            env_config=env_config_evaluate, 
+            max_episodes=5
+        )

@@ -75,55 +75,55 @@ class GridWorldEnv(gym.Env):
         direction = self._action_to_direction[action]
         new_location = self._agent_location + direction
 
-        invalid_move_penalty = self.penalty_scaling  # Fetch dynamic penalty scaling
+        invalid_move_penalty = self.penalty_scaling
 
-        # Check if the move is valid
         if 0 <= new_location[0] < self.size and 0 <= new_location[1] < self.size:
             self._agent_location = new_location
+            self.score += 1  # Reward for valid move
         else:
-            # Penalize invalid move
-            self.score -= 5 * invalid_move_penalty
+            self.score -= 2 * invalid_move_penalty
 
         tile_value = self.grid[tuple(self._agent_location)]
 
-        # Update score based on the tile
         if tile_value == 1:  # Grass
-            self.score += 10
+            self.score += 20
         elif tile_value == -1:  # Hazard
             self.score -= 5
 
-        # Clear the grid tile after interaction
         self.grid[tuple(self._agent_location)] = 0
         self.steps += 1
 
-        # Always calculate grass_remaining
         grass_remaining = np.sum(self.grid == 1)
+
+        # Oscillation detection
+        if not hasattr(self, "previous_locations"):
+            self.previous_locations = []
+
+        self.previous_locations.append(tuple(self._agent_location))
+        if len(self.previous_locations) > 10:
+            self.previous_locations.pop(0)
+
+        unique_locations = set(self.previous_locations)
+        oscillating = len(unique_locations) <= 2
+
+        # Termination conditions
         terminated = (
-            self.score < 0 or 
-            self.steps >= self.max_steps or 
-            grass_remaining == 0 or 
-            len(set(getattr(self, "previous_locations", []))) <= 2  # Oscillation check
+            self.score < -10 or
+            self.steps >= self.max_steps or
+            grass_remaining == 0 or
+            (oscillating and self.steps > 20)  # Terminate if oscillation persists
         )
 
-        # Initialize termination_reason
         termination_reason = None
         if terminated:
-            if self.score < 0:
+            if self.score < -10:
                 termination_reason = "low_score"
             elif self.steps >= self.max_steps:
                 termination_reason = "max_steps"
             elif grass_remaining == 0:
                 termination_reason = "no_grass_remaining"
-            elif len(set(getattr(self, "previous_locations", []))) <= 2:
+            elif oscillating:
                 termination_reason = "oscillation"
-
-        # Track agent's movement history
-        if not hasattr(self, "previous_locations"):
-            self.previous_locations = []  # Initialize movement history
-        
-        if len(self.previous_locations) > 5:
-            self.previous_locations.pop(0)
-        self.previous_locations.append(tuple(self._agent_location))
 
         observation = self._get_obs()
         if self.render_mode == "human":
@@ -131,9 +131,11 @@ class GridWorldEnv(gym.Env):
 
         return observation, self.score, terminated, False, {
             "grass_remaining": grass_remaining,
-            "invalid_moves": invalid_move_penalty,  # Log invalid moves
-            "termination_reason": termination_reason,  # Log termination reason
+            "oscillation_detected": oscillating,
+            "termination_reason": termination_reason,
         }
+
+
 
 
 

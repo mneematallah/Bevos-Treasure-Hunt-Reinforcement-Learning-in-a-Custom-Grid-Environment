@@ -1,13 +1,16 @@
 from stable_baselines3 import PPO
+from stable_baselines3.common.vec_env import VecNormalize
 from gymnasium_env.envs import GridWorldEnv
 import torch
+import time
 
 
-def evaluate(model_path, env_config=None, max_episodes=5):
+def evaluate(model_path, norm_path=None, env_config=None, max_episodes=5):
     """
     Runs a trained PPO model on the GridWorldEnv and visualizes its behavior.
 
     :param model_path: str - File path to the saved model.
+    :param norm_path: str - File path to the normalization statistics (optional).
     :param env_config: dict - A dictionary of environment parameters (optional).
     :param max_episodes: int - Number of episodes to run for evaluation.
     """
@@ -26,6 +29,12 @@ def evaluate(model_path, env_config=None, max_episodes=5):
 
     # Create the environment
     env = GridWorldEnv(**env_config)
+
+    # Load normalization statistics if available
+    if norm_path:
+        env = VecNormalize.load(norm_path, env)
+        env.training = False  # Disable updates to normalization stats
+        env.norm_reward = False  # Keep rewards in their original scale
 
     # Load the trained model
     model = PPO.load(model_path, device=device)
@@ -48,8 +57,10 @@ def evaluate(model_path, env_config=None, max_episodes=5):
                 total_reward += reward
                 # Render the environment
                 env.render()
+                time.sleep(0.1)  # Optional: Add a delay for better visualization
 
-            print(f"Episode {episode + 1} finished with total reward: {total_reward}")
+            termination_reason = info.get("termination_reason", "unknown")
+            print(f"Episode {episode + 1} finished with total reward: {total_reward}, Reason: {termination_reason}")
     finally:
         # Ensure the environment is closed properly
         env.close()
