@@ -115,15 +115,18 @@ class GridWorldEnv(gym.Env):
         )
 
         termination_reason = None
-        if terminated:
+        if oscillating and self.steps > 20:
+            self.score -= 10 * self.penalty_scaling  # Penalize oscillation
+            termination_reason = "oscillation"
+            terminated = True
+
+        if terminated and not termination_reason:
             if self.score < -10:
                 termination_reason = "low_score"
             elif self.steps >= self.max_steps:
                 termination_reason = "max_steps"
             elif grass_remaining == 0:
                 termination_reason = "no_grass_remaining"
-            elif oscillating:
-                termination_reason = "oscillation"
 
         observation = self._get_obs()
         if self.render_mode == "human":
@@ -134,10 +137,6 @@ class GridWorldEnv(gym.Env):
             "oscillation_detected": oscillating,
             "termination_reason": termination_reason,
         }
-
-
-
-
 
 
     def _get_obs(self):
