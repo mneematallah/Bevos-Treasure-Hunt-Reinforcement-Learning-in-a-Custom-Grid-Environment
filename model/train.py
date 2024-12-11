@@ -1,8 +1,7 @@
 import os
 import gymnasium as gym
 from stable_baselines3 import PPO
-from stable_baselines3.common.vec_env import DummyVecEnv
-# from stable_baselines3.common.vec_env import VecNormalize  # Commenting this out
+from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 from stable_baselines3.common.callbacks import CheckpointCallback
 from stable_baselines3.common.logger import configure
 from stable_baselines3.common.monitor import Monitor
@@ -28,7 +27,7 @@ class CustomFeatureExtractor(BaseFeaturesExtractor):
 
 def train_model(
     model_path="policy/ppo_gridworld_model",
-    total_timesteps=500_000,
+    total_timesteps=1_000_000,    # Increased training time
     env_config=None,
     save_unique=False,
 ):
@@ -39,7 +38,7 @@ def train_model(
         env_config = {
             "render_mode": None,
             "size": 5,
-            "max_steps": 300,     # Reduced max_steps for shorter episodes
+            "max_steps": 1000,      # Increase max steps to allow more exploration per episode
             "grass_count": 3,
             "ou_count": 5,
             "penalty_scaling": 0.05
@@ -49,14 +48,15 @@ def train_model(
         env = GridWorldEnv(**env_config)
         return Monitor(env)
 
-    # Remove VecNormalize to see if normalization was causing issues
-    env = DummyVecEnv([make_env])
-    # env = VecNormalize(env, norm_obs=True, norm_reward=True, clip_reward=10.0)  # Commented out
+    # Reintroduce VecNormalize to stabilize training
+    venv = DummyVecEnv([make_env])
+    env = VecNormalize(venv, norm_obs=True, norm_reward=True, clip_reward=10.0)
 
     log_dir = "./logs/"
     os.makedirs(log_dir, exist_ok=True)
     new_logger = configure(log_dir, ["stdout", "csv", "tensorboard"])
 
+    # Do not load with custom objects to avoid serialization issues
     if os.path.exists(model_path + ".zip"):
         model = PPO.load(model_path, env=env, device=device)
         model.set_logger(new_logger)
@@ -70,12 +70,12 @@ def train_model(
             "MlpPolicy",
             env,
             policy_kwargs=policy_kwargs,
-            learning_rate=1e-4,
-            n_steps=2048,       # You can adjust as needed
+            learning_rate=5e-5,    # Lower learning rate for stability
+            n_steps=4096,          # Large number of steps per update
             batch_size=256,
             clip_range=0.1,
-            ent_coef=0.01,       # Increase entropy to encourage exploration
-            gamma=0.99,          # Slightly lower than 1.0 might help immediate reward focus
+            ent_coef=0.01,         # Encourage exploration
+            gamma=0.99,
             verbose=1,
             device=device,
         )
@@ -89,6 +89,9 @@ def train_model(
     )
 
     model.learn(total_timesteps=total_timesteps, callback=checkpoint_callback)
+
+    # Save normalization statistics
+    env.save("policy/ppo_gridworld_model_norm")
 
     if save_unique:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
