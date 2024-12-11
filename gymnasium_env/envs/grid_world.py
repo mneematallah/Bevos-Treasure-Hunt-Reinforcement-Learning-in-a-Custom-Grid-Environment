@@ -43,14 +43,17 @@ class GridWorldEnv(gym.Env):
         self.grid = None
         self._agent_location = None
         self.steps = 0
-        self.score = 10
+
+        # Initial score can be zero or something neutral
+        self.score = 0
 
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
         self.steps = 0
-        self.score = 10
+        self.score = 0
         self._agent_location = self.np_random.integers(0, self.size, size=2, dtype=int)
         self.grid = np.zeros((self.size, self.size), dtype=int)
+
         # Place grass (1)
         for _ in range(self.grass_count):
             while True:
@@ -58,6 +61,7 @@ class GridWorldEnv(gym.Env):
                 if not np.array_equal(loc, self._agent_location) and self.grid[tuple(loc)] == 0:
                     self.grid[tuple(loc)] = 1
                     break
+
         # Place ou (hazards) (-1)
         for _ in range(self.ou_count):
             while True:
@@ -65,8 +69,12 @@ class GridWorldEnv(gym.Env):
                 if not np.array_equal(loc, self._agent_location) and self.grid[tuple(loc)] == 0:
                     self.grid[tuple(loc)] = -1
                     break
+
+        # Initialize previous locations for oscillation detection
+        self.previous_locations = []
+
         observation = self._get_obs()
-        info = {}  # Additional information
+        info = {}
         if self.render_mode == "human":
             self._render_frame()
         return observation, info
@@ -75,34 +83,37 @@ class GridWorldEnv(gym.Env):
         direction = self._action_to_direction[action]
         new_location = self._agent_location + direction
 
+        # Apply a small negative step cost every step
+        step_cost = -0.1
+        self.score += step_cost
+
         invalid_move_penalty = self.penalty_scaling
 
         if 0 <= new_location[0] < self.size and 0 <= new_location[1] < self.size:
             self._agent_location = new_location
-            self.score += 1  # Reward for valid move
+            # No +1 reward for valid move on empty tiles now
         else:
+            # Invalid move penalty
             self.score -= 2 * invalid_move_penalty
 
         tile_value = self.grid[tuple(self._agent_location)]
 
         if tile_value == 1:  # Grass
-            self.score += 20
+            # Increase grass reward
+            self.score += 50
         elif tile_value == -1:  # Hazard
             self.score -= 5
 
+        # Clear the tile after collecting grass or stepping on hazard
         self.grid[tuple(self._agent_location)] = 0
         self.steps += 1
 
         grass_remaining = np.sum(self.grid == 1)
 
         # Oscillation detection
-        if not hasattr(self, "previous_locations"):
-            self.previous_locations = []
-
         self.previous_locations.append(tuple(self._agent_location))
         if len(self.previous_locations) > 10:
             self.previous_locations.pop(0)
-
         unique_locations = set(self.previous_locations)
         oscillating = len(unique_locations) <= 2
 
@@ -111,12 +122,12 @@ class GridWorldEnv(gym.Env):
             self.score < -10 or
             self.steps >= self.max_steps or
             grass_remaining == 0 or
-            (oscillating and self.steps > 20)  # Terminate if oscillation persists
+            (oscillating and self.steps > 20)
         )
 
         termination_reason = None
         if oscillating and self.steps > 20:
-            self.score -= 10 * self.penalty_scaling  # Penalize oscillation
+            self.score -= 10 * self.penalty_scaling
             termination_reason = "oscillation"
             terminated = True
 
@@ -138,31 +149,30 @@ class GridWorldEnv(gym.Env):
             "termination_reason": termination_reason,
         }
 
-
     def _get_obs(self):
         agent_obs = np.array(self._agent_location, dtype=np.float32)
-        tiles_obs = self.grid.flatten().astype(np.float32)  # Flatten the grid into 1D for use for 
-        return np.concatenate([agent_obs, tiles_obs])  # Combine agent and grid into a single array
+        tiles_obs = self.grid.flatten().astype(np.float32)
+        return np.concatenate([agent_obs, tiles_obs])
 
     def render(self):
         if self.render_mode == "human":
-            self._render_frame()  # Call the rendering function directly
+            self._render_frame()
         elif self.render_mode == "rgb_array":
             return self._render_frame()
-
 
     def _render_frame(self):
         if self.window is None and self.render_mode == "human":
             pygame.init()
             pygame.display.init()
             self.window = pygame.display.set_mode(
-                (self.window_size, self.window_size + 50))  # Add space for score and steps
+                (self.window_size, self.window_size + 50))  # Extra space for score/steps
         if self.clock is None and self.render_mode == "human":
             self.clock = pygame.time.Clock()
 
         canvas = pygame.Surface((self.window_size, self.window_size + 50))
         canvas.fill((255, 255, 255))
         pix_square_size = self.window_size // self.size
+
         grass_image = pygame.image.load("images/grass.png")
         grass_image = pygame.transform.scale(grass_image, (pix_square_size, pix_square_size))
         agent_image = pygame.image.load("images/bevo.png")
@@ -170,7 +180,7 @@ class GridWorldEnv(gym.Env):
         ou_image = pygame.image.load("images/ou.png")
         ou_image = pygame.transform.scale(ou_image, (pix_square_size, pix_square_size))
 
-        # Draw the grass, ou (hazard), and agent on the canvas
+        # Draw grid
         for x in range(self.size):
             for y in range(self.size):
                 if self.grid[x, y] == 1:
@@ -181,22 +191,21 @@ class GridWorldEnv(gym.Env):
         canvas.blit(agent_image,
                     (self._agent_location[0] * pix_square_size, self._agent_location[1] * pix_square_size + 50))
 
+        # Draw grid lines
         for x in range(self.size + 1):
             pygame.draw.line(canvas, (0, 0, 0), (0, pix_square_size * x + 50),
-                             (self.window_size, pix_square_size * x + 50),
-                             width=3)
-            pygame.draw.line(canvas, (0, 0, 0), (pix_square_size * x, 50), (pix_square_size * x, self.window_size + 50),
-                             width=3)
+                             (self.window_size, pix_square_size * x + 50), width=3)
+            pygame.draw.line(canvas, (0, 0, 0), (pix_square_size * x, 50),
+                             (pix_square_size * x, self.window_size + 50), width=3)
 
         font = pygame.font.Font(None, 36)
-        score_text = font.render(f"Score: {self.score}", True, (0, 0, 0))
+        score_text = font.render(f"Score: {self.score:.1f}", True, (0, 0, 0))
         steps_text = font.render(f"Steps: {self.steps}/{self.max_steps}", True, (0, 0, 0))
 
         canvas.blit(score_text, (10, 10))
         text_width, _ = steps_text.get_size()
         canvas.blit(steps_text, (self.window_size - text_width - 10, 10))
 
-        # Show the canvas in the window
         if self.render_mode == "human":
             self.window.blit(canvas, canvas.get_rect())
             pygame.event.pump()
@@ -204,26 +213,6 @@ class GridWorldEnv(gym.Env):
             self.clock.tick(self.metadata["render_fps"])
         else:
             return np.transpose(np.array(pygame.surfarray.pixels3d(canvas)), axes=(1, 0, 2))
-            
-    def save_video(self, output_path="output.mp4", fps=20, speed_factor=2):
-        """
-        Saves the collected frames as a video file.
-
-        :param output_path: str - File path for the output video.
-        :param fps: int - Frames per second for the video.
-        :param speed_factor: float - Factor by which to speed up the video.
-        """
-        if len(self.frames) == 0:
-            print("No frames to save. Run the environment with render_mode='rgb_array'.")
-            return
-
-        # Adjust fps for speed-up
-        adjusted_fps = int(fps * speed_factor)
-
-        # Create video clip
-        clip = ImageSequenceClip(self.frames, fps=adjusted_fps)
-        clip.write_videofile(output_path, codec="libx264")
-        print(f"Video saved to {output_path}")
 
     def close(self):
         if self.window is not None:
