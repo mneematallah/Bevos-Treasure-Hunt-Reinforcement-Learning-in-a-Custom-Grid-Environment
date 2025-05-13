@@ -38,7 +38,7 @@ def train_model(
         env_config = {
             "render_mode": None,
             "size": 5,
-            "max_steps": 1000,      # Increase max steps to allow more exploration per episode
+            "max_steps": 1000,     
             "grass_count": 3,
             "ou_count": 5,
             "penalty_scaling": 0.05
@@ -48,7 +48,6 @@ def train_model(
         env = GridWorldEnv(**env_config)
         return Monitor(env)
 
-    # Reintroduce VecNormalize to stabilize training
     venv = DummyVecEnv([make_env])
     env = VecNormalize(venv, norm_obs=True, norm_reward=True, clip_reward=10.0)
 
@@ -56,7 +55,6 @@ def train_model(
     os.makedirs(log_dir, exist_ok=True)
     new_logger = configure(log_dir, ["stdout", "csv", "tensorboard"])
 
-    # Do not load with custom objects to avoid serialization issues
     if os.path.exists(model_path + ".zip"):
         model = PPO.load(model_path, env=env, device=device)
         model.set_logger(new_logger)
@@ -70,11 +68,11 @@ def train_model(
             "MlpPolicy",
             env,
             policy_kwargs=policy_kwargs,
-            learning_rate=5e-5,    # Lower learning rate for stability
-            n_steps=4096,          # Large number of steps per update
+            learning_rate=5e-5,   
+            n_steps=4096,          
             batch_size=256,
             clip_range=0.1,
-            ent_coef=0.01,         # Encourage exploration
+            ent_coef=0.01,       
             gamma=0.99,
             verbose=1,
             device=device,
@@ -90,7 +88,6 @@ def train_model(
 
     model.learn(total_timesteps=total_timesteps, callback=checkpoint_callback)
 
-    # Save normalization statistics
     env.save("policy/ppo_gridworld_model_norm")
 
     if save_unique:

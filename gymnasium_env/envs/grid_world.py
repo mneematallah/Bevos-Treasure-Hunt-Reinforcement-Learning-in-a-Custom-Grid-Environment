@@ -51,7 +51,6 @@ class GridWorldEnv(gym.Env):
         self._agent_location = self.np_random.integers(0, self.size, size=2, dtype=int)
         self.grid = np.zeros((self.size, self.size), dtype=int)
 
-        # Place grass
         for _ in range(self.grass_count):
             while True:
                 loc = self.np_random.integers(0, self.size, size=2, dtype=int)
@@ -59,7 +58,6 @@ class GridWorldEnv(gym.Env):
                     self.grid[tuple(loc)] = 1
                     break
 
-        # Place hazards
         for _ in range(self.ou_count):
             while True:
                 loc = self.np_random.integers(0, self.size, size=2, dtype=int)
@@ -78,55 +76,46 @@ class GridWorldEnv(gym.Env):
         direction = self._action_to_direction[action]
         new_location = self._agent_location + direction
 
-        # Remove step cost or keep it minimal:
-        # step_cost = -0.01 to slightly discourage wandering but not too harsh
+      
         step_cost = -0.01
         self.score += step_cost
 
         invalid_move_penalty = self.penalty_scaling
 
-        # Check validity
         if 0 <= new_location[0] < self.size and 0 <= new_location[1] < self.size:
             self._agent_location = new_location
-            # Reward for valid move - slightly smaller to not overshadow grass
             self.score += 0.5
         else:
-            # Invalid move penalty, keep mild
             self.score -= 1 * invalid_move_penalty
 
         tile_value = self.grid[tuple(self._agent_location)]
 
-        # Increase grass reward to strongly encourage finding grass
         if tile_value == 1:
             self.score += 100
         elif tile_value == -1:
-            self.score -= 10  # Increase hazard penalty
+            self.score -= 10  
 
-        # Clear tile once visited
         self.grid[tuple(self._agent_location)] = 0
         self.steps += 1
 
         grass_remaining = np.sum(self.grid == 1)
 
-        # Adjust oscillation detection: keep last 10 locations
         self.previous_locations.append(tuple(self._agent_location))
         if len(self.previous_locations) > 10:
             self.previous_locations.pop(0)
         unique_locations = set(self.previous_locations)
         oscillating = len(unique_locations) <= 2
 
-        # Termination conditions
-        # Give more time before oscillation triggers termination: steps > 50
+    
         terminated = (
-            self.score < -20 or   # More tolerance before low_score termination
+            self.score < -20 or  
             self.steps >= self.max_steps or
             grass_remaining == 0 or
-            (oscillating and self.steps > 50)  # Trigger oscillation termination later
+            (oscillating and self.steps > 50)  
         )
 
         termination_reason = None
         if oscillating and self.steps > 50:
-            # Penalize oscillation harder now
             self.score -= 20 * self.penalty_scaling
             termination_reason = "oscillation"
             terminated = True
@@ -180,7 +169,6 @@ class GridWorldEnv(gym.Env):
         ou_image = pygame.image.load("images/ou.png")
         ou_image = pygame.transform.scale(ou_image, (pix_square_size, pix_square_size))
 
-        # Draw grid
         for x in range(self.size):
             for y in range(self.size):
                 if self.grid[x, y] == 1:
@@ -191,7 +179,6 @@ class GridWorldEnv(gym.Env):
         canvas.blit(agent_image,
                     (self._agent_location[0] * pix_square_size, self._agent_location[1] * pix_square_size + 50))
 
-        # Draw grid lines
         for x in range(self.size + 1):
             pygame.draw.line(canvas, (0, 0, 0), (0, pix_square_size * x + 50),
                              (self.window_size, pix_square_size * x + 50), width=3)
